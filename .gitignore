@@ -36,3 +36,6 @@ coverage
 !.env.example
 
 .history/
+
+# Markdown files
+*.md

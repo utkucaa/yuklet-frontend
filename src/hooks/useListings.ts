@@ -280,3 +280,232 @@ export const useCargoAction = (action: 'cancel' | 'complete') => {
     },
   });
 };
+
+// İlan onaylama hook'u
+export const useApproveListing = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, type }: { id: number; type: 'LOAD' | 'CAPACITY' }): Promise<void> => {
+      // Admin API'leri kullanarak durum güncelleme
+      const endpoint = type === 'LOAD' ? `/admin/cargo-requests/${id}/status?status=ACTIVE` : `/admin/transport-offers/${id}/status?status=ACTIVE`;
+      await api.put(endpoint);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['listings'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-listings'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-listings'] });
+      toast.success('İlan onaylandı');
+    },
+    onError: () => {
+      toast.error('İlan onaylanırken hata oluştu');
+    },
+  });
+};
+
+// İlan reddetme hook'u
+export const useRejectListing = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, type, reason }: { id: number; type: 'LOAD' | 'CAPACITY'; reason?: string }): Promise<void> => {
+      // Admin API'leri kullanarak durum güncelleme
+      const endpoint = type === 'LOAD' ? `/admin/cargo-requests/${id}/status?status=REJECTED` : `/admin/transport-offers/${id}/status?status=REJECTED`;
+      await api.put(endpoint, { reason });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['listings'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-listings'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-listings'] });
+      toast.success('İlan reddedildi');
+    },
+    onError: () => {
+      toast.error('İlan reddedilirken hata oluştu');
+    },
+  });
+};
+
+// İlan silme hook'u
+export const useDeleteListing = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, type }: { id: number; type: 'LOAD' | 'CAPACITY' }): Promise<void> => {
+      // Admin API'leri kullanarak silme
+      const endpoint = type === 'LOAD' ? `/admin/cargo-requests/${id}` : `/admin/transport-offers/${id}`;
+      await api.delete(endpoint);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['listings'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-listings'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-listings'] });
+      toast.success('İlan silindi');
+    },
+    onError: () => {
+      toast.error('İlan silinirken hata oluştu');
+    },
+  });
+};
+
+// Bekleyen ilanları getirme hook'u
+export const usePendingListings = () => {
+  return useQuery({
+    queryKey: ['pending-listings'],
+    queryFn: async (): Promise<ListingResponse> => {
+      try {
+        // Admin API'lerini kullanarak bekleyen ilanları getir
+        const [cargoResponse, transportResponse] = await Promise.all([
+          api.get('/cargo/search', { params: { status: 'PENDING', size: 100 } }),
+          api.get('/transport-offers/search', { params: { status: 'PENDING', size: 100 } })
+        ]);
+
+        const cargoListings = cargoResponse.data?.content?.map(mapCargoToListing) || [];
+        const transportListings = transportResponse.data?.content?.map(mapTransportOfferToListing) || [];
+        
+        const allListings = [...cargoListings, ...transportListings];
+        
+        return {
+          content: allListings,
+          totalElements: allListings.length,
+          totalPages: 1,
+          size: allListings.length,
+          number: 0,
+        };
+      } catch (error) {
+        console.error('Bekleyen ilanlar getirilirken hata:', error);
+        return {
+          content: [],
+          totalElements: 0,
+          totalPages: 1,
+          size: 0,
+          number: 0,
+        };
+      }
+    },
+  });
+};
+
+// Admin için tüm ilanları getirme hook'u
+export const useAdminAllListings = () => {
+  return useQuery({
+    queryKey: ['admin-listings'],
+    queryFn: async (): Promise<ListingResponse> => {
+      try {
+        // Admin API'lerini kullanarak tüm ilanları getir
+        const [cargoResponse, transportResponse] = await Promise.all([
+          api.get('/admin/cargo-requests'),
+          api.get('/admin/transport-offers')
+        ]);
+
+        const cargoListings = cargoResponse.data?.map(mapCargoToListing) || [];
+        const transportListings = transportResponse.data?.map(mapTransportOfferToListing) || [];
+        
+        const allListings = [...cargoListings, ...transportListings];
+        
+        return {
+          content: allListings,
+          totalElements: allListings.length,
+          totalPages: 1,
+          size: allListings.length,
+          number: 0,
+        };
+      } catch (error) {
+        console.error('Admin ilanları getirilirken hata:', error);
+        return {
+          content: [],
+          totalElements: 0,
+          totalPages: 1,
+          size: 0,
+          number: 0,
+        };
+      }
+    },
+  });
+};
+
+// İlan durumu güncelleme hook'u
+export const useUpdateListingStatus = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, type, status }: { id: number; type: 'LOAD' | 'CAPACITY'; status: string }): Promise<void> => {
+      const endpoint = type === 'LOAD' ? `/admin/cargo-requests/${id}/status?status=${status}` : `/admin/transport-offers/${id}/status?status=${status}`;
+      await api.put(endpoint);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['listings'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-listings'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-listings'] });
+      toast.success('İlan durumu güncellendi');
+    },
+    onError: () => {
+      toast.error('İlan durumu güncellenirken hata oluştu');
+    },
+  });
+};
+
+// Veritabanında olmayan ilanları silmek için yeni hook
+export const useCleanupInvalidListings = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (): Promise<{ deletedCount: number; invalidIds: number[] }> => {
+      try {
+        // Önce tüm ilanları çek
+        const cargoResponse = await api.get('/cargo/search', { params: { size: 1000 } });
+        const transportResponse = await api.get('/transport-offers/search', { params: { size: 1000 } });
+        
+        const cargoListings = cargoResponse.data?.content || [];
+        const transportListings = transportResponse.data?.content || [];
+        
+        const invalidIds: number[] = [];
+        let deletedCount = 0;
+        
+        // Cargo ilanlarını kontrol et
+        for (const cargo of cargoListings) {
+          try {
+            // Her ilanı tekrar kontrol et
+            await api.get(`/cargo/${cargo.id}`);
+          } catch (error) {
+            // İlan bulunamadıysa silinecek listesine ekle
+            invalidIds.push(cargo.id);
+            try {
+              await api.delete(`/cargo/${cargo.id}`);
+              deletedCount++;
+              console.log(`Geçersiz cargo ilanı silindi: ${cargo.id}`);
+            } catch (deleteError) {
+              console.error(`Cargo ilanı silinirken hata: ${cargo.id}`, deleteError);
+            }
+          }
+        }
+        
+        // Transport offer ilanlarını kontrol et
+        for (const transport of transportListings) {
+          try {
+            // Her ilanı tekrar kontrol et
+            await api.get(`/transport-offers/${transport.id}`);
+          } catch (error) {
+            // İlan bulunamadıysa silinecek listesine ekle
+            invalidIds.push(transport.id);
+            try {
+              await api.delete(`/transport-offers/${transport.id}`);
+              deletedCount++;
+              console.log(`Geçersiz transport offer ilanı silindi: ${transport.id}`);
+            } catch (deleteError) {
+              console.error(`Transport offer ilanı silinirken hata: ${transport.id}`, deleteError);
+            }
+          }
+        }
+        
+        return { deletedCount, invalidIds };
+      } catch (error) {
+        console.error('İlan temizleme işlemi sırasında hata:', error);
+        throw error;
+      }
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['listings'] });
+      toast.success(`${result.deletedCount} geçersiz ilan silindi`);
+      console.log('Silinen geçersiz ilan ID\'leri:', result.invalidIds);
+    },
+    onError: (error) => {
+      toast.error('İlan temizleme işlemi başarısız oldu');
+      console.error('İlan temizleme hatası:', error);
+    },
+  });
+};

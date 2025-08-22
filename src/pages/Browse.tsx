@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FilterBar } from '@/components/listings/FilterBar';
 import { ListingCard } from '@/components/listings/ListingCard';
 import type { SearchParams, Listing, ListingType } from '@/types';
-import { useListings } from '@/hooks/useListings';
+import { useListings, useCleanupInvalidListings } from '@/hooks/useListings';
 import { useCreateConversation } from '@/hooks/useMessages';
 import { useAuthStore } from '@/store/authStore';
 import toast from 'react-hot-toast';
@@ -18,6 +18,7 @@ import {
   ArrowUpDown,
   Package,
   Truck,
+  Trash2,
 } from 'lucide-react';
 
 export function Browse() {
@@ -29,6 +30,10 @@ export function Browse() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const createConversation = useCreateConversation();
+  const cleanupListings = useCleanupInvalidListings();
+  
+  // Admin kontrolü - şimdilik herkese açık
+  const isAdmin = true; // user?.role === 'ADMIN' || user?.email?.includes('admin');
 
   const handleMessage = (listing: Listing) => {
     if (!user) {
@@ -232,6 +237,19 @@ export function Browse() {
                       <SelectItem value="capDesc">Kapasite ↓</SelectItem>
                     </SelectContent>
                   </Select>
+
+                  {isAdmin && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => cleanupListings.mutate()}
+                      disabled={cleanupListings.isPending}
+                      className="flex items-center gap-2"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      {cleanupListings.isPending ? 'Temizleniyor...' : 'Geçersiz İlanları Temizle'}
+                    </Button>
+                  )}
                 </div>
               </div>
 

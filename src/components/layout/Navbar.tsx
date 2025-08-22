@@ -21,7 +21,7 @@ import {
   Menu,
   User,
   LogOut,
-  
+  Settings,
   Plus,
   Truck,
   Globe,
@@ -95,6 +95,16 @@ export function Navbar() {
                 <User className="h-5 w-5" />
                 <span>{t('nav.profile')}</span>
               </Link>
+              {user?.email === 'admin@yuklet.com' && (
+                <Link
+                  to="/admin"
+                  className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                  onClick={() => setSidebarOpen(false)}
+                >
+                  <Settings className="h-5 w-5" />
+                  <span>Admin Panel</span>
+                </Link>
+              )}
               <button
                 onClick={() => {
                   logout();
@@ -212,6 +222,12 @@ export function Navbar() {
                       <User className="mr-2 h-4 w-4" />
                       <span>{t('nav.profile')}</span>
                     </DropdownMenuItem>
+                    {user?.email === 'admin@yuklet.com' && (
+                      <DropdownMenuItem onClick={() => navigate('/admin')}>
+                        <Settings className="mr-2 h-4 w-4" />
+                        <span>Admin Panel</span>
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => logout()}>
                       <LogOut className="mr-2 h-4 w-4" />

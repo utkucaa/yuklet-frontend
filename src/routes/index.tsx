@@ -11,6 +11,7 @@ import { Messages } from '@/pages/Messages';
 import { Notifications } from '@/pages/Notifications';
 import { Vehicles } from '@/pages/Vehicles';
 import { Favorites } from '@/pages/Favorites';
+import { Admin } from '@/pages/Admin';
 
 
 export const router = createBrowserRouter([
@@ -62,6 +63,10 @@ export const router = createBrowserRouter([
   {
     path: '/register',
     element: <Register />,
+  },
+  {
+    path: '/admin',
+    element: <AppLayout><Admin /></AppLayout>,
   },
   {
     path: '/about',
